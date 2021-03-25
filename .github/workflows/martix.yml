@@ -1,3 +1,6 @@
+name: Perl Matrix Testing
+on:
+  - push
 jobs:
   build:
     runs-on: ${{ matrix.os }}
@@ -9,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Set up perl
-        uses: shogo82148/actions-setup-perl@v1
+        uses: shogo82148/actions-setup-perl@v1.10.0
         with:
           perl-version: ${{ matrix.perl }}
       - run: perl -V
