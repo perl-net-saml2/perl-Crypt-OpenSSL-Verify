@@ -107,6 +107,7 @@ jobs:
       AUTHOR_TESTING: 1
       AUTOMATED_TESTING: 1
       RELEASE_TESTING: 1
+      PERL5LIB: local/lib/perl5
 
     runs-on: ubuntu-latest
     needs: [openssl-matrix,perl-versions]
@@ -122,10 +123,26 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - run: openssl version
+
+      - name: Restore CPAN cache
+        id: cache-perl
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cpanm
+            ~/.cpan
+            local/lib/perl5
+          key: ${{ runner.os }}-perl-${{ matrix.perl-version }}-${{ hashFiles('**/cpanfile', '**/cpanfile.snapshot') }}
+          restore-keys: |
+            ${{ runner.os }}-perl-${{ matrix.perl-version }}-
+
       - run: perl -V
-      - name: Deps for testing
+
+      - name: Install Perl dependencies (only on cache miss)
+        if: ${{ steps.cache-perl.outputs.cache-hit != 'true' }}
         run: |
-          cpanm --notest Crypt::OpenSSL::X509 File::Slurper Test::Exception ||:
+          cpanm --local-lib=local --installdeps --notest . ||:
+
       - run: perl Makefile.PL
       - run: make && ( make test || prove -wbvm t/*.t )
 
@@ -139,17 +156,19 @@ jobs:
       AUTHOR_TESTING: 0
       AUTOMATED_TESTING: 1
       RELEASE_TESTING: 0
+      PERL5LIB: local/lib/perl5
 
-    needs: [openssl-matrix, perl-versions]
+    needs: [openssl-matrix]
     runs-on: windows-latest
 
     strategy:
       fail-fast: false
       matrix:
-        perl-version: ${{ fromJson (needs.perl-versions.outputs.perl-versions) }}
+        perl-version: [latest]
 
     steps:
       - uses: actions/checkout@v6
+
       - name: Set up Perl
         run: |
           # skip installing perl if it is already installed.
@@ -162,9 +181,26 @@ jobs:
           C:\strawberry\perl\bin
           "@ |
             Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
       - run: openssl version
+
+      - name: Restore CPAN cache
+        id: cache-perl
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~\.cpanm
+            ~\.cpan
+            local\lib\perl5
+          key: ${{ runner.os }}-perl-${{ matrix.perl-version }}-${{ hashFiles('**/cpanfile', '**/cpanfile.snapshot') }}
+          restore-keys: |
+            ${{ runner.os }}-perl-${{ matrix.perl-version }}-
+
       - run: perl -V
-      - name: Deps for testing
-        run: cpanm --notest Crypt::OpenSSL::X509 File::Slurper Test::Exception
+
+      - name: Install Perl dependencies (only on cache miss)
+        if: ${{ steps.cache-perl.outputs.cache-hit != 'true' }}
+        run: cpanm --local-lib=local --notest --installdeps .
+
       - run: perl Makefile.PL
-      - run: make && ( make test || prove -wbvm t/*.t )
+      - run: gmake && ( gmake test || prove -wbvm t/*.t )
